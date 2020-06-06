@@ -15,21 +15,26 @@ from django.contrib.auth.models import Group
 
 @unauthenticated_user
 def registerPage(request):
-    form = CreateUserForm()
-    if request.method == 'POST':
-        form = CreateUserForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            username = form.cleaned_data.get('username')
 
-            group = Group.objects.get(name='customer')
-            user.group.add(group)
+	form = CreateUserForm()
+	if request.method == 'POST':
+		form = CreateUserForm(request.POST)
+		if form.is_valid():
+			user = form.save()
+			username = form.cleaned_data.get('username')
 
-            messages.success(request, 'Account was created for ' + username)
-            return redirect('login')
+			group = Group.objects.get(name='customer')
+			user.groups.add(group)
+			Customer.objects.create(
+				user=user,
+				name=user.username,
+				)
 
-        context = {'form': form}
-        return render(request, 'accounts/register.html', context)
+			messages.success(request, 'Account was created for ' + username)
+			return redirect('login')
+		
+	context = {'form':form}
+	return render(request, 'accounts/register.html', context)
     
 @unauthenticated_user
 def loginPage(request):
@@ -70,8 +75,19 @@ def home(request):
             }
     return render(request, 'accounts/dashboard.html', context)
 
+@login_required(login_url='login')
+@allowed_users(allowed_roles=['customer'])
 def userPage(request):
-    context = {}
+    orders = request.user.customer.order_set.all()
+
+    total_orders = orders.count()
+    delivered = orders.filter(status='Delivered').count()
+    pending = orders.filter(status='Pending').count()
+    
+    context = {'orders': orders,
+    'total_orders': total_orders,
+    'delivered': delivered,
+    'pending': pending}
     return render(request, 'accounts/user.html', context)
 
 
